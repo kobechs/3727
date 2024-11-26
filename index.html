@@ -1,0 +1,329 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta http-equiv="Content-Security-Policy" content="default-src * data: gap: content: https://ssl.gstatic.com; style-src * 'unsafe-inline'; script-src * 'unsafe-inline' 'unsafe-eval'">
+    <style>
+        body {
+            text-align: center;
+            background-color: #f0f8ff;
+            color: #333333;
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        h1 {
+            color: #4CAF50;
+            font-size: 60px;
+            margin-top: 20px;
+        }
+
+        #question {
+            width: 100%;
+            margin: 40px 0;
+            font-size: 50px;
+            color: #FF9800;
+        }
+
+        #answerForm {
+            font-size: 30px;
+            margin: 20px auto;
+        }
+
+        #answer {
+            width: 60%;
+            font-size: 30px;
+            padding: 10px;
+            border-radius: 10px;
+            border: 2px solid #4CAF50;
+            background-color: #ffffff;
+            color: #333333;
+            text-align: center;
+        }
+
+        button {
+            font-size: 30px;
+            color: #ffffff;
+            background-color: #4CAF50;
+            border: none;
+            border-radius: 20px;
+            padding: 15px 30px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #388E3C;
+        }
+
+        p {
+            font-size: 24px;
+            color: #4CAF50;
+        }
+
+        #resultImage {
+            margin-top: 30px;
+            width: 300px;
+            height: 300px;
+            object-fit: cover;
+            border: 5px solid #4CAF50;
+        }
+    </style>
+    <script>
+        let power = parseInt(localStorage.getItem('power')) || 0;
+        let energy = parseInt(localStorage.getItem('energy')) || 0;
+        let correctCount = 0;
+        let bigMode = false;
+        let barMode = false;
+        let gogoChance = false;
+        let bonusTarget = 0;
+        let initialEnergy = 0;
+        let currentAnswer = 0;
+        let isSubtraction = false;
+        let subtractionUnlocked = localStorage.getItem('subtractionUnlocked') === 'true';
+        let tripleEnergyMode = localStorage.getItem('tripleEnergyMode') === 'true';
+
+        // ローカルストレージにデータを保存
+        function saveData() {
+            localStorage.setItem('energy', energy);
+            localStorage.setItem('power', power);
+            localStorage.setItem('subtractionUnlocked', subtractionUnlocked);
+            localStorage.setItem('tripleEnergyMode', tripleEnergyMode);
+        }
+
+        function getRandomNumber() {
+            return Math.floor(Math.random() * 900) + 100;
+        }
+
+        function convertPowerToEnergy() {
+            if (power >= 1000) {
+                let exchangeEnergy = Math.floor(power / 1000) * 50;
+                power %= 1000;
+                energy += exchangeEnergy;
+                saveData();
+                alert(exchangeEnergy + "エネルギーに変換しました！");
+            } else {
+                alert("エネルギーに変換するには1000暗算パワーが必要です。");
+            }
+            updateDisplay();
+        }
+
+        function spinRoulette() {
+            let requiredEnergy = 3;
+            if (gogoChance) {
+                requiredEnergy = 1;
+            } else if (bigMode || barMode) {
+                requiredEnergy = 2;
+            }
+
+            if (energy >= requiredEnergy) {
+                energy -= requiredEnergy;
+                saveData();
+                return performSpin();
+            } else {
+                alert("エネルギーが足りません。");
+                return null;
+            }
+        }
+
+        function unlockSubtraction() {
+            if (subtractionUnlocked) {
+                alert("引き算は既に解放されています。");
+                return;
+            }
+            if (energy >= 200) {
+                energy -= 200;
+                subtractionUnlocked = true;
+                saveData();
+                alert("引き算が解放されました！");
+                document.getElementById("subtractionButton").disabled = false;
+            } else {
+                alert("エネルギーが足りません！ 200エネルギーが必要です。");
+            }
+            updateDisplay();
+        }
+
+        function unlockTripleEnergyMode() {
+            if (tripleEnergyMode) {
+                alert("3倍モードは既に有効です。");
+                return;
+            }
+            if (energy >= 1000) {
+                energy -= 1000;
+                tripleEnergyMode = true;
+                saveData();
+                alert("エネルギー3倍モードが有効になりました！");
+            } else {
+                alert("エネルギーが足りません！ 1000エネルギーが必要です。");
+            }
+            updateDisplay();
+        }
+
+        function selectMode(mode) {
+            isSubtraction = (mode === 'subtraction');
+            showQuestion();
+        }
+
+        function performSpin() {
+            if (gogoChance) {
+                gogoChance = false;
+                return "bigOrBar";
+            }
+            if (bigMode || barMode) {
+                return "bigOrBarBudou";
+            }
+
+            const result = Math.random();
+            if (result < 1 / 6) {
+                return "budou";
+            } else if (result < (1 / 6) + (1 / 7)) {
+                return "zou";
+            } else if (result < (1 / 6) + (1 / 7) + (1 / 33)) {
+                return "sakuranbo";
+            } else if (result < (1 / 6) + (1 / 7) + (1 / 33) + (1 / 150)) {
+                return "hazureWithChance";
+            } else {
+                return "hazure";
+            }
+        }
+
+        function showQuestion() {
+            let num1 = getRandomNumber();
+            let num2 = getRandomNumber();
+            if (isSubtraction) {
+                if (num1 < num2) [num1, num2] = [num2, num1];
+                document.getElementById("question").innerHTML = num1 + " - " + num2 + " = ?";
+                currentAnswer = num1 - num2;
+            } else {
+                document.getElementById("question").innerHTML = num1 + " + " + num2 + " = ?";
+                currentAnswer = num1 + num2;
+            }
+        }
+
+        function handleRouletteResult(result) {
+            let resultMessage = document.getElementById("resultMessage");
+            let resultImage = document.getElementById("resultImage");
+            let multiplier = tripleEnergyMode ? 3 : 1;
+
+            switch (result) {
+                case "budou":
+                    resultMessage.innerHTML = "何かつかんだ！！ +" + (8 * multiplier) + "エネルギー";
+                    energy += 8 * multiplier;
+                    resultImage.src = "budou.png";
+                    break;
+                case "zou":
+                    resultMessage.innerHTML = "学んだ！（+" + (3 * multiplier) + "エネルギー）";
+                    energy += 3 * multiplier;
+                    resultImage.src = "zou.png";
+                    break;
+                case "sakuranbo":
+                    resultMessage.innerHTML = "暗算パワー！！ +" + (2 * multiplier) + "エネルギー";
+                    energy += 2 * multiplier;
+                    resultImage.src = "sakuranbo.png";
+                    break;
+                case "hazureWithChance":
+                    resultMessage.innerHTML = "なんかできそう！！！！";
+                    gogoChance = true;
+                    resultImage.src = "gogo.png";
+                    break;
+                case "bigOrBar":
+                    let bigOrBar = Math.random();
+                    if (bigOrBar < 2 / 5) {
+                        bigMode = true;
+                        bonusTarget = 250 * multiplier;
+                        initialEnergy = energy;
+                        resultMessage.innerHTML = "暗算パワーMAX！ " + (250 * multiplier) + "エネルギー獲得まで続く";
+                        resultImage.src = "big.png";
+                    } else {
+                        barMode = true;
+                        bonusTarget = 100 * multiplier;
+                        initialEnergy = energy;
+                        resultMessage.innerHTML = "暗算パワー向上！ " + (100 * multiplier) + "エネルギー獲得まで続く";
+                        resultImage.src = "bar.png";
+                    }
+                    break;
+                case "bigOrBarBudou":
+                    if (bigMode) {
+                        resultMessage.innerHTML = "暗算完了！！ +" + (14 * multiplier) + "エネルギー";
+                        energy += 14 * multiplier;
+                        if (energy >= initialEnergy + bonusTarget) {
+                            bigMode = false;
+                            resultMessage.innerHTML += "<br>暗算パワーMAX終了！";
+                        }
+                    } else if (barMode) {
+                        resultMessage.innerHTML = "暗算完了！ +" + (14 * multiplier) + "エネルギー";
+                        energy += 14 * multiplier;
+                        if (energy >= initialEnergy + bonusTarget) {
+                            barMode = false;
+                            resultMessage.innerHTML += "<br>暗算パワー向上終了！";
+                        }
+                    }
+                    resultImage.src = "budou.png";
+                    break;
+                default:
+                    resultMessage.innerHTML = "わからん！";
+                    resultImage.src = "hazure.png";
+            }
+
+            saveData();
+            updateDisplay();
+        }
+
+        function judge() {
+            let answer = parseInt(document.getElementById("answer").value);
+            if (answer === currentAnswer) {
+                correctCount++;
+                power += isSubtraction ? 500 : 200;
+                alert(`正解です！${isSubtraction ? 500 : 200}暗算パワーを獲得しました。`);
+                updateDisplay();
+            } else {
+                alert("残念！不正解です。");
+            }
+            showQuestion();
+            document.getElementById("answer").value = "";
+        }
+
+        function updateDisplay() {
+            document.getElementById("power").innerHTML = "暗算パワー: " + power + "パワー";
+            document.getElementById("energy").innerHTML = "エネルギー: " + energy + "ポイント";
+            document.getElementById("subtractionButton").disabled = !subtractionUnlocked;
+        }
+
+        function spin() {
+            let result = spinRoulette();
+            if (result !== null) {
+                handleRouletteResult(result);
+            }
+        }
+
+        // ページ読み込み時に表示を更新
+        window.onload = updateDisplay;
+    </script>
+</head>
+<body onload="showQuestion()">
+    <h1 id="title">暗算パワーアップゲーム</h1>
+    <div id="question"></div>
+    <div id="answerForm">
+        <input type="number" id="answer" placeholder="答えを入力">
+        <button onclick="judge()">OK</button>
+    </div>
+
+    <p id="power">暗算パワー: 0パワー</p>
+    <p id="energy">エネルギー: 読み込み中...</p>
+    <button onclick="convertPowerToEnergy()">1000暗算パワーで50エネルギーに変換</button>
+    <button onclick="spin()">勉強する</button>
+    <button onclick="unlockSubtraction()">引き算を解放 (200エネルギー消費)</button>
+    <button onclick="unlockTripleEnergyMode()">エネルギー3倍モード解放 (1000エネルギー消費)</button>
+    <button id="additionButton" onclick="selectMode('addition')">足し算に挑戦</button>
+    <button id="subtractionButton" onclick="selectMode('subtraction')" disabled>引き算に挑戦</button>
+
+    <img id="resultImage" src="" alt="ルーレットの結果画像" />
+
+    <p id="resultMessage"></p>
+
+    <p><a href="game2.html">???へ</a></p>  
+</body>
+</html>

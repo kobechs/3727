@@ -1,0 +1,264 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>世界を救え！</title>
+    <style>
+        body {
+            background-color: #222;
+            color: #eee;
+            font-family: 'Arial', sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+        }
+        h1, h2 {
+            color: #ffd700;
+        }
+        #energyDisplay, #stats, #message {
+            font-size: 20px;
+            margin-top: 10px;
+        }
+        #dungeon, #inventorySection, #upgradeSection {
+            width: 80%;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #333;
+            border: 3px solid #444;
+            border-radius: 10px;
+        }
+        .btn {
+            font-size: 18px;
+            padding: 10px 20px;
+            margin: 5px;
+            background-color: #555;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .btn:hover {
+            background-color: #666;
+        }
+        .btn:disabled {
+            background-color: #444;
+            cursor: not-allowed;
+        }
+        #enemyStats {
+            margin-top: 10px;
+        }
+        #enemyImage {
+            max-width: 200px;
+            max-height: 200px;
+            margin: 10px auto;
+        }
+    </style>
+    <script>
+        let energy = parseInt(localStorage.getItem('energy')) || 0;
+        let playerHP = 3, playerAttack = 1, playerDefense = 0;
+        let baseHP = 3, baseAttack = 1, baseDefense = 0;
+        let attackLimit = 6, defenseLimit = 4, hpLimit = 8;
+        let playerProofs = [];
+        let currentMonster = null;
+        let consecutiveWins = 0;
+        let consecutiveDraws = 0;
+
+        const monsters = [
+            { name: "すらいむ", hp: 3, attack: 1, defense: 0, image: "slime.jpg", skill: null },
+            { name: "ゴブリン", hp: 4, attack: 2, defense: 0, image: "goblin.png", skill: null },
+            { name: "小鬼", hp: 5, attack: 3, defense:1, image: "kobold.png", skill: null },
+            { name: "小龍", hp: 5, attack: 3, defense:2, image: "small_dragon.png", skill: "あいこで敵に1ダメージ" },
+            { name: "田中", hp: 3, attack: 3, defense:1, image: "tanaka.png", skill: "2連続あいこで攻撃力+100" },
+            { name: "魔法使い", hp: 5, attack: 4, defense:1, image: "mage.png", skill: "あいこで敵の攻撃力+1" },
+            { name: "鬼", hp: 6, attack: 5, defense:2, image: "oni.png", skill: null },
+            { name: "ゴーレム", hp: 7, attack: 4, defense:3, image: "golem.png", skill: "最初の攻撃を無効化" },
+            { name: "龍", hp: 6, attack: 6, defense:3, image: "dragon.png", skill: "敵のダメージ分回復" },
+            { name: "デーモン", hp: 7, attack: 7, defense:4, image: "demon.png", skill: "あいこで攻撃力+2" }
+        ];
+
+        function saveEnergy() {
+            localStorage.setItem('energy', energy);
+        }
+
+        function updateDisplay() {
+            document.getElementById('energyDisplay').innerText = `エネルギー: ${energy} ポイント`;
+            document.getElementById('stats').innerText = `体力: ${playerHP}/${baseHP} | 攻撃力: ${playerAttack} | 防御力: ${playerDefense}`;
+        }
+
+        function selectMonster(level) {
+            if (level > 1 && !playerProofs.includes(monsters[level - 2].name)) {
+                alert(`前のモンスター「${monsters[level - 2].name}」を倒してください！`);
+                return;
+            }
+            currentMonster = { ...monsters[level - 1], currentHP: monsters[level - 1].hp, firstAttackBlocked: true };
+            document.getElementById("enemyImage").src = currentMonster.image;
+            document.getElementById("enemyStats").innerText = `敵: ${currentMonster.name} | 体力: ???`;
+            document.getElementById("message").innerText = `${currentMonster.name} が現れた！戦闘開始！`;
+            consecutiveWins = 0;
+            consecutiveDraws = 0;
+        }
+
+        function janken(playerChoice) {
+            if (!currentMonster) {
+                alert("敵を選択してください！");
+                return;
+            }
+
+            const choices = ["グー", "チョキ", "パー"];
+            const enemyChoice = choices[Math.floor(Math.random() * 3)];
+            let resultMessage = `あなた: ${playerChoice}、敵: ${enemyChoice} - `;
+
+            if (playerChoice === enemyChoice) {
+                resultMessage += "引き分け！";
+                consecutiveDraws++;
+                if (currentMonster.skill === "あいこで敵に1ダメージ") {
+                    currentMonster.currentHP -= 1;
+                    resultMessage += " 敵が1ダメージを受けた！";
+                } else if (currentMonster.skill === "あいこで敵の攻撃力+1") {
+                    currentMonster.attack += 1;
+                    resultMessage += " 敵の攻撃力が1アップ！";
+                } else if (currentMonster.skill === "あいこで攻撃力+2") {
+                    currentMonster.attack += 2;
+                    resultMessage += " 敵の攻撃力が2アップ！";
+                } else if (currentMonster.skill === "2連続あいこで攻撃力+100" && consecutiveDraws >= 2) {
+                    currentMonster.attack += 100;
+                    resultMessage += " 敵の攻撃力が100アップ！";
+                }
+                consecutiveWins = 0; // 連勝リセット
+            } else if (
+                (playerChoice === "グー" && enemyChoice === "チョキ") ||
+                (playerChoice === "チョキ" && enemyChoice === "パー") ||
+                (playerChoice === "パー" && enemyChoice === "グー")
+            ) {
+                let damage = Math.max(playerAttack - currentMonster.defense, 1);
+                if (currentMonster.skill === "最初の攻撃を無効化" && currentMonster.firstAttackBlocked) {
+                    damage = 0;
+                    currentMonster.firstAttackBlocked = false;
+                    resultMessage += "敵は最初の攻撃を無効化！";
+                } else {
+                    currentMonster.currentHP -= damage;
+                    resultMessage += `勝利！敵に${damage}ダメージ！`;
+                }
+                consecutiveWins++;
+                consecutiveDraws = 0; // 引き分けリセット
+            } else {
+                let damage = Math.max(currentMonster.attack - playerDefense, 1);
+                playerHP -= damage;
+                resultMessage += `敗北... 敵の攻撃で${damage}ダメージ！`;
+
+                if (currentMonster.skill === "敵のダメージ分回復") {
+                    currentMonster.currentHP = Math.min(currentMonster.hp, currentMonster.currentHP + damage);
+                    resultMessage += ` 敵が${damage}回復！`;
+                }
+                consecutiveWins = 0;
+                consecutiveDraws = 0; // 引き分けリセット
+            }
+
+            document.getElementById("message").innerText = resultMessage;
+            document.getElementById("enemyStats").innerText = `敵: ${currentMonster.name} | 体力: ${Math.max(currentMonster.currentHP, 0)}`;
+            updateDisplay();
+
+            if (playerHP <= 0) {
+                alert("あなたは敗北しました...");
+                resetBattle();
+            } else if (currentMonster.currentHP <= 0) {
+                alert(`${currentMonster.name} を倒しました！`);
+                if (!playerProofs.includes(currentMonster.name)) {
+                    playerProofs.push(currentMonster.name);
+                }
+                if (currentMonster.name === "デーモン") {
+                    alert("あなたの暗算によって世界は救われました！おめでとう！ゲームクリア！");
+                }
+                resetBattle();
+            }
+        }
+
+        function resetBattle() {
+            currentMonster = null;
+            playerHP = baseHP;
+            updateDisplay();
+        }
+
+        function upgrade(stat) {
+            if (energy < 100) {
+                alert("エネルギーが足りません！");
+                return;
+            }
+            switch (stat) {
+                case "attack":
+                    if (baseAttack < attackLimit) {
+                        baseAttack++;
+                        playerAttack++;
+                        energy -= 100;
+                    } else {
+                        alert("攻撃力の上限に達しています！");
+                    }
+                    break;
+                case "defense":
+                    if (baseDefense < defenseLimit) {
+                        baseDefense++;
+                        playerDefense++;
+                        energy -= 100;
+                    } else {
+                        alert("防御力の上限に達しています！");
+                    }
+                    break;
+                case "hp":
+                    if (baseHP < hpLimit) {
+                        baseHP++;
+                        playerHP++;
+                        energy -= 100;
+                    } else {
+                        alert("体力の上限に達しています！");
+                    }
+                    break;
+            }
+            saveEnergy();
+            updateDisplay();
+        }
+
+        window.onload = updateDisplay;
+    </script>
+</head>
+<body>
+    <h1>世界を救え！</h1>
+    <p id="energyDisplay">エネルギー: 読み込み中...</p>
+    <div id="stats">体力: 3/3 | 攻撃力: 1 | 防御力: 0</div>
+
+    <div id="dungeon">
+        <h2>モンスターを選ぶ</h2>
+        <button class="btn" onclick="selectMonster(1)">Lv.1 すらいむ</button>
+        <button class="btn" onclick="selectMonster(2)">Lv.2 ゴブリン</button>
+        <button class="btn" onclick="selectMonster(3)">Lv.3 小鬼</button>
+        <button class="btn" onclick="selectMonster(4)">Lv.4 小龍</button>
+        <button class="btn" onclick="selectMonster(5)">Lv.5 田中</button>
+        <button class="btn" onclick="selectMonster(6)">Lv.6 魔法使い</button>
+        <button class="btn" onclick="selectMonster(7)">Lv.7 鬼</button>
+        <button class="btn" onclick="selectMonster(8)">Lv.8 ゴーレム</button>
+        <button class="btn" onclick="selectMonster(9)">Lv.9 龍</button>
+        <button class="btn" onclick="selectMonster(10)">Lv.10 デーモン</button>
+    </div>
+
+    <div id="janken">
+        <h2>じゃんけんで戦う！</h2>
+        <img id="enemyImage" src="" alt="敵画像">
+        <button class="btn" onclick="janken('グー')">グー</button>
+        <button class="btn" onclick="janken('チョキ')">チョキ</button>
+        <button class="btn" onclick="janken('パー')">パー</button>
+        <div id="message">敵を選択してください。</div>
+    </div>
+    <div id="enemyStats"></div>
+
+    <div id="upgradeSection">
+        <h2>能力を強化する</h2>
+        <button class="btn" onclick="upgrade('attack')">攻撃力 +1 (100エネルギー)</button>
+        <button class="btn" onclick="upgrade('defense')">防御力 +1 (100エネルギー)</button>
+        <button class="btn" onclick="upgrade('hp')">体力 +1 (100エネルギー)</button>
+    </div>
+
+   
+
+    <p><a href="index.html">戻る</a></p>
+
+</body>
+</html>
